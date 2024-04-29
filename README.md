@@ -2,13 +2,15 @@
 
 Control your PTZ camera with a xbox controller.
 
-**It is work in progress and wil have errors.**
+**It is work in progress and will have errors.**
 
 ## Description
 
 This project is a simple controller for PTZ cameras. It uses an ESP32 and an xbox Series X controller to control the camera. The camera is controlled via VISCA over RS-485.
 
 It was tested with a [RGB20X/30X-POE-WH](https://www.rgblink.com/uppic/file/202112240532067028.pdf) camera from RGBlink. It should work with any camera that supports VISCA over RS-485.
+
+![ptz](images/ptz.png)
 
 ## Features
 
