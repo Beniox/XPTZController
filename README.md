@@ -39,6 +39,11 @@ Then you have to compile and upload the code to the ESP32.
 
 After powering up the ESP32, it will try to connect to the controller. If it is successful, you can start controlling the camera.
 
+## Testing
+
+Because I don't have a PTZ camera at home, I created a simple PTZ simulator. For development I recommend using https://sourceforge.net/projects/com0com/ to create a virtual serial port pair. Then you can use the simulator to test the controller.
+It is a **very** simple Website under `/docs` or https://beniox.github.io/XPTZController .
+
 ## Libraries
 
 I used the this library to control the xbox controller.
