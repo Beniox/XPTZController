@@ -39,6 +39,9 @@ byte zoomPosReq[5] = {0x81, 0x09, 0x04, 0x47, 0xff};
 
 byte turnOn[6] = {0x81, 0x01, 0x04, 0x00, 0x03, 0xFF};
 
+byte setMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x02, 0xFF};    // 8x 01 04 3F 02 ff
+byte recallMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x03, 0xFF}; // 8x 01 04 3F 03 ff
+
 auto leftXS = 0;
 auto leftYS = 0;
 
@@ -144,6 +147,36 @@ void loop()
       Serial.println("Restarting");
       // ESP.restart();
       // ESP.deepSleep(0);
+      return;
+    }
+
+    // recall memory 1 to 4 by pressing the dpad
+    if (xboxController.xboxNotif.dpadUp)
+    {
+      Serial.println("Recall memory 1");
+      recallMemory[4] = 0x01;
+      sendViscaPacket(recallMemory, sizeof(recallMemory));
+      return;
+    }
+    if (xboxController.xboxNotif.dpadRight)
+    {
+      Serial.println("Recall memory 2");
+      recallMemory[4] = 0x02;
+      sendViscaPacket(recallMemory, sizeof(recallMemory));
+      return;
+    }
+    if (xboxController.xboxNotif.dpadDown)
+    {
+      Serial.println("Recall memory 3");
+      recallMemory[4] = 0x03;
+      sendViscaPacket(recallMemory, sizeof(recallMemory));
+      return;
+    }
+    if (xboxController.xboxNotif.dpadLeft)
+    {
+      Serial.println("Recall memory 4");
+      recallMemory[4] = 0x04;
+      sendViscaPacket(recallMemory, sizeof(recallMemory));
       return;
     }
 
