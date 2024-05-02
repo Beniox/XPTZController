@@ -1,235 +1,337 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <title>PTZ</title>
 </head>
+
 <body>
 
-<button id="btn" onclick="setup()">Request Serial Port</button>
+
+    <div id="settings">
+        <h2>Settings</h2>
+        <button id="btn" onclick="setup()">Open Serial Port</button>
+
+        <!-- help button -->
+        <button id="helpBtn">Help</button>
+        <button id="consoleBtn">Show Console</button>
+    </div>
+
+    <div id="console">
+<!--        This displays the received commands-->
+        <h2 id="cH">Console</h2>
+        <div id="consoleContent"></div>
+
+    </div>
 
 
-<div id="frame">
-    <div id="camera"></div>
-</div>
+    <dialog id="help">
+        <h2>Help</h2>
+        <p>This is a very simple PTZ Simulator to test the <a href="https://www.epiphan.com/userguides/LUMiO12x/Content/UserGuides/PTZ/3-operation/VISCAcommands.htm">VISCA</a> protocol via a COM input.</p>
+        <p>Currently only a few commands are implemented.</p>
 
-<script>
-    if ("serial" in navigator) {
-        // The Web Serial API is supported.
-    } else {
-        alert("Web Serial API is not supported");
-    }
-    let port;
+        <h3>Commands:</h3>
+        <p>- Tilt/Pan -> moves the box around</p>
+        <p>- Zoom In/Out -> changes the size of the box</p>
 
-    async function setup() {
-        port = await navigator.serial.requestPort();
-        await port.open({baudRate: 9600});
-        console.log(port);
-        reader();
-        PTZ.startInterval();
-    }
+        <h3>Console</h3>
+        <p>The console displays the received commands. If the command is not known, it will be displayed in red.</p>
+
+        <button onclick="help.close()">Close</button>
+    </dialog>
+
+    <div id="lastDiv">
+        <p>Last known Command: <span id="lastP"></span> </p>
+    </div>
 
 
-    async function reader() {
-        while (port.readable) {
-            const reader = port.readable.getReader();
-            try {
-                while (true) {
-                    const {value, done} = await reader.read()
-                    if (done) {
-                        // |reader| has been canceled.
-                        break;
+    <div id="frame">
+        <div id="camera"></div>
+    </div>
+
+    <script>
+        const consoleBtn = document.getElementById("consoleBtn");
+        const consoleContent = document.getElementById("consoleContent");
+        const helpModal = document.getElementById("help");
+        const helpBtn = document.getElementById("helpBtn");
+        const btn = document.getElementById("btn");
+        const consoleHeader = document.getElementById("cH");
+        const lastP = document.getElementById("lastP");
+
+        let port;
+
+
+        consoleBtn.addEventListener("click", () => {
+            consoleContent.style.display = consoleContent.style.display === "none" ? "block" : "none";
+        });
+
+        consoleHeader.addEventListener("click", () => {
+            consoleContent.style.display = consoleContent.style.display === "none" ? "block" : "none";
+        });
+
+        helpBtn.addEventListener("click", () => {
+            helpModal.showModal();
+        });
+
+
+        if ("serial" in navigator) {
+            // The Web Serial API is supported.
+        } else {
+            alert("Web Serial API is not supported");
+        }
+
+
+        function logToConsole(message, error = false) {
+            const p = document.createElement("p");
+
+            let str = "> "
+            message.forEach((m) => {
+                const hex = m.toString(16);
+                const tmp = hex.length === 1 ? "0" + hex : hex;
+                str += tmp + " ";
+            });
+            p.innerText = str;
+            p.style.color = error ? "red" : "black";
+            consoleContent.appendChild(p);
+            consoleContent.scrollTop = consoleContent.scrollHeight;
+        }
+
+        function logLastCommand(message) {
+            lastP.innerText = message;
+        }
+
+        async function setup() {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 });
+            btn.innerText = "Serial Port Opened";
+            btn.disabled = true;
+            reader();
+            PTZ.startInterval();
+        }
+
+
+        async function reader() {
+            while (port.readable) {
+                const reader = port.readable.getReader();
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read()
+                        if (done) {
+                            // |reader| has been canceled.
+                            break;
+                        }
+                        // Do something with |value|...
+                       const known = PTZ.isKnownCommand(value);
+                        logToConsole(value, !known);
+
                     }
-                    // Do something with |value|...
-                    PTZ.isKnownCommand(value);
-
+                } catch (error) {
+                    // Handle |error|...
+                } finally {
+                    reader.releaseLock();
                 }
-            } catch (error) {
-                // Handle |error|...
-            } finally {
-                reader.releaseLock();
             }
         }
-    }
 
 
-    const PTZ = {
-        camera: document.getElementById("camera"),
-        frame: document.getElementById("frame"),
-        cameraT: null,
-        commands: {
-            move: {
-                // Byte 5 and 6 are the speed of the movement
-                up: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x01, 0xFF]),
-                down: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x02, 0xFF]),
-                left: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x01, 0x03, 0xFF]),
-                right: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x02, 0x03, 0xFF]),
-                upLeft: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x01, 0x01, 0xFF]),
-                upRight: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x02, 0x01, 0xFF]),
-                downLeft: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x01, 0x02, 0xFF]),
-                downRight: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x02, 0x02, 0xFF]),
-                stop: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x03, 0xFF]),
+        const PTZ = {
+            camera: document.getElementById("camera"),
+            frame: document.getElementById("frame"),
+            cameraT: null,
+            commands: {
+                move: {
+                    // Byte 5 and 6 are the speed of the movement
+                    up: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x01, 0xFF]),
+                    down: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x02, 0xFF]),
+                    left: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x01, 0x03, 0xFF]),
+                    right: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x02, 0x03, 0xFF]),
+                    upLeft: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x01, 0x01, 0xFF]),
+                    upRight: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x02, 0x01, 0xFF]),
+                    downLeft: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x01, 0x02, 0xFF]),
+                    downRight: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x02, 0x02, 0xFF]),
+                    stop: new Uint8Array([0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x03, 0xFF]),
+                },
+                zoom: {
+
+                    // Byte 5 is the speed of the zoom
+                    zoomIn: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x20, 0xFF]),
+                    zoomOut: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x30, 0xFF]),
+                    zoomStop: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x00, 0xFF]),
+                },
+                settings: {
+                    turnOn: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x02, 0xFF]),
+                    turnOff: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x03, 0xFF]),
+
+                },
+                presets: {
+                    set: new Uint8Array([0x81, 0x01, 0x04, 0x3F, 0x01, 0x01, 0xFF]),
+                    recall: new Uint8Array([0x81, 0x01, 0x04, 0x3F, 0x02, 0x01, 0xFF]),
+                }
             },
+
+            dir: {
+                moveX: 0,
+                moveY: 0,
+                speedX: 0,
+                speed: 0,
+            },
+            pos: {
+                x: 200,
+                y: 200,
+            },
+            size: 50,
+            maxSize: 300,
+            minSize: 10,
             zoom: {
-
-                // Byte 5 is the speed of the zoom
-                zoomIn: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x20, 0xFF]),
-                zoomOut: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x30, 0xFF]),
-                zoomStop: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x00, 0xFF]),
+                dir: 0,
+                speed: 1,
             },
-            settings: {
-                turnOn: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x02, 0xFF]),
-                turnOff: new Uint8Array([0x81, 0x01, 0x04, 0x07, 0x03, 0xFF]),
 
-            },
-        },
+            isKnownCommand: function (command) {
+                // check if the command is known, ignore the speed byte
+                if (command[0] !== 0x81) {
+                    console.log("Unknown command");
+                    return false;
+                }
 
-        dir: {
-            moveX: 0,
-            moveY: 0,
-            speedX: 0,
-            speed: 0,
-        },
-        pos: {
-            x: 200,
-            y: 200,
-        },
-        size: 50,
-        maxSize: 300,
-        minSize: 10,
-        zoom: {
-            dir: 0,
-            speed: 1,
-        },
+                // check if the command is a movement command
+                if (command[1] === 0x01 && command[2] === 0x06 && command[3] === 0x01 && command[8] === 0xFF) {
+                    // find the command, but ignore the Byte 5 and 6
+                    for (let key in PTZ.commands.move) {
+                        if (command[6] === PTZ.commands.move[key][6] && command[7] === PTZ.commands.move[key][7]) {
+                            //convert the speed to decimal
+                            const SpeedX = Number(command[4].toString(16));
+                            const SpeedY = Number(command[4].toString(16));
 
-        isKnownCommand: function (command) {
-            // check if the command is known, ignore the speed byte
-            if (command[0] !== 0x81) {
-                console.log("Unknown command");
-                return false;
-            }
+                            if (SpeedX > 18 || SpeedX < 0) {
+                                console.log("Invalid SpeedX: " + SpeedX);
+                                return false;
+                            }
+                            if (SpeedY > 18 || SpeedY < 0) {
+                                console.log("Invalid SpeedY: " + SpeedY);
+                                return false;
+                            }
 
-            // check if the command is a movement command
-            if (command[1] === 0x01 && command[2] === 0x06 && command[3] === 0x01 && command[8] === 0xFF) {
-                // find the command, but ignore the Byte 5 and 6
-                for (let key in PTZ.commands.move) {
-                    if (command[6] === PTZ.commands.move[key][6] && command[7] === PTZ.commands.move[key][7]) {
-                        //convert the speed to decimal
-                        const SpeedX = Number(command[4].toString(16));
-                        const SpeedY = Number(command[4].toString(16));
+                            this.dir.speedY = SpeedY;
+                            this.dir.speedX = SpeedX;
 
-                        if (SpeedX > 18 || SpeedX < 0) {
-                            console.log("Invalid SpeedX: " + SpeedX);
-                            return false;
+                            this.dir.moveX = command[6];
+                            this.dir.moveY = command[7];
+
+                            logLastCommand(key);
+
+                            return true;
                         }
-                        if (SpeedY > 18 || SpeedY < 0) {
-                            console.log("Invalid SpeedY: " + SpeedY);
-                            return false;
-                        }
-
-                        this.dir.speedY = SpeedY;
-                        this.dir.speedX = SpeedX;
-
-                        this.dir.moveX = command[6];
-                        this.dir.moveY = command[7];
-
-                        return true;
                     }
                 }
-            }
 
-            // check if the command is a zoom command
-            if (command[1] === 0x01 && command[2] === 0x04 && command[3] === 0x07 && command[5] === 0xFF) {
-                // find the command, but ignore the Byte 5
-                const dir = command[4].toString(16)[0];
-                // const speed = command[4].toString(16)[1] ?? 0;
-                const speed = 3;
-                this.zoom.speed = parseInt(speed, 16);
-                this.zoom.dir = dir;
-                console.log(`${this.zoom.dir}  ${this.zoom.speed}`);
-            }
-        },
+                // check if the command is a zoom command
+                if (command[1] === 0x01 && command[2] === 0x04 && command[3] === 0x07 && command[5] === 0xFF) {
+                    // find the command, but ignore the Byte 5
+                    const dir = command[4].toString(16)[0];
+                    // const speed = command[4].toString(16)[1] ?? 0;
+                    const speed = 3;
+                    this.zoom.speed = parseInt(speed, 16);
+                    this.zoom.dir = dir;
+                    const key = dir == "2" ? "zoomIn" : dir == "3" ? "zoomOut" : "zoomStop";
+                    logLastCommand(key);
+                    return true;
+                }
 
-        startInterval: function () {
-            this.cameraT = this.camera.style.transform;
-            // start the interval to move the camera
-            this.interval = setInterval(this.moveCamera, 50);
-        },
+                //check if preset
+                if (command[1] === 0x01 && command[2] === 0x04 && command[3] === 0x3F && command[6] === 0xFF) {
+                    const id = Number(command[5]);
+                    const key = command[4] === 0x01 ? "set" : "recall";
+                    logLastCommand(`${key} preset ${id}`);
+                    return true;
+                }
 
-        moveCamera: function () {
-            // console.log("Moving Camera");
-            // move the camera in the direction and speed
+                return false;
+            },
 
-            if (PTZ.dir.moveY === 1) {
-                // console.log("Moving Up");
-                PTZ.pos.y -= PTZ.dir.speedY;
-            } else if (PTZ.dir.moveY === 2) {
-                // console.log("Moving Down");
-                PTZ.pos.y += PTZ.dir.speedY;
-            } else {
-                PTZ.dir.speedY = 0;
-            }
+            startInterval: function () {
+                this.cameraT = this.camera.style.transform;
+                // start the interval to move the camera
+                this.interval = setInterval(this.moveCamera, 50);
+            },
 
-            if (PTZ.dir.moveX === 1) {
-                // console.log("Moving Left");
-                PTZ.pos.x -= PTZ.dir.speedX;
-            } else if (PTZ.dir.moveX === 2) {
-                // console.log("Moving Right");
-                PTZ.pos.x += PTZ.dir.speedX;
-            } else {
-                PTZ.dir.speedX = 0;
-            }
+            moveCamera: function () {
+                // console.log("Moving Camera");
+                // move the camera in the direction and speed
 
-            // check if out of bounds
-            if (PTZ.pos.y < 0) {
-                PTZ.pos.y = 0;
-            } else if (PTZ.pos.y > PTZ.frame.clientHeight - PTZ.camera.clientHeight) {
-                PTZ.pos.y = PTZ.frame.clientHeight - PTZ.camera.clientHeight;
-            }
-            if (PTZ.pos.x < 0) {
-                PTZ.pos.x = 0;
-            } else if (PTZ.pos.x > PTZ.frame.clientWidth - PTZ.camera.clientWidth) {
-                PTZ.pos.x = PTZ.frame.clientWidth - PTZ.camera.clientWidth;
-            }
+                if (PTZ.dir.moveY === 1) {
+                    // console.log("Moving Up");
+                    PTZ.pos.y -= PTZ.dir.speedY;
+                } else if (PTZ.dir.moveY === 2) {
+                    // console.log("Moving Down");
+                    PTZ.pos.y += PTZ.dir.speedY;
+                } else {
+                    PTZ.dir.speedY = 0;
+                }
 
-            PTZ.camera.style.top = PTZ.pos.y + "px";
-            PTZ.camera.style.left = PTZ.pos.x + "px";
+                if (PTZ.dir.moveX === 1) {
+                    // console.log("Moving Left");
+                    PTZ.pos.x -= PTZ.dir.speedX;
+                } else if (PTZ.dir.moveX === 2) {
+                    // console.log("Moving Right");
+                    PTZ.pos.x += PTZ.dir.speedX;
+                } else {
+                    PTZ.dir.speedX = 0;
+                }
 
-            //zoom
-            if (PTZ.zoom.dir == 2) {
-                console.log("Zooming In");
-                PTZ.size += PTZ.zoom.speed;
-            } else if (PTZ.zoom.dir == 3) {
-                PTZ.size -= PTZ.zoom.speed;
-            }
+                // check if out of bounds
+                if (PTZ.pos.y < 0) {
+                    PTZ.pos.y = 0;
+                } else if (PTZ.pos.y > PTZ.frame.clientHeight - PTZ.camera.clientHeight) {
+                    PTZ.pos.y = PTZ.frame.clientHeight - PTZ.camera.clientHeight;
+                }
+                if (PTZ.pos.x < 0) {
+                    PTZ.pos.x = 0;
+                } else if (PTZ.pos.x > PTZ.frame.clientWidth - PTZ.camera.clientWidth) {
+                    PTZ.pos.x = PTZ.frame.clientWidth - PTZ.camera.clientWidth;
+                }
 
+                PTZ.camera.style.top = PTZ.pos.y + "px";
+                PTZ.camera.style.left = PTZ.pos.x + "px";
 
-            if (PTZ.size < PTZ.minSize) {
-                PTZ.size = PTZ.minSize;
-            } else if (PTZ.size > PTZ.maxSize) {
-                PTZ.size = PTZ.maxSize;
-            }
-            PTZ.camera.style.width = PTZ.size + "px";
-            PTZ.camera.style.height = PTZ.size + "px";
-
-        },
-
-
-    }
+                //zoom
+                if (PTZ.zoom.dir == 2) {
+                    console.log("Zooming In");
+                    PTZ.size += PTZ.zoom.speed;
+                } else if (PTZ.zoom.dir == 3) {
+                    PTZ.size -= PTZ.zoom.speed;
+                }
 
 
-</script>
+                if (PTZ.size < PTZ.minSize) {
+                    PTZ.size = PTZ.minSize;
+                } else if (PTZ.size > PTZ.maxSize) {
+                    PTZ.size = PTZ.maxSize;
+                }
+                PTZ.camera.style.width = PTZ.size + "px";
+                PTZ.camera.style.height = PTZ.size + "px";
+
+            },
+
+
+        }
+
+
+    </script>
 
 </body>
 
 <style>
-    *{
+    * {
         margin: 0;
         padding: 0;
     }
+
     body {
         height: 100vh;
     }
+
     #frame {
         width: 100%;
         height: 100%;
@@ -248,14 +350,72 @@
         transform: translate(-50%, -50%);
     }
 
-    #btn {
+    #settings {
         position: absolute;
+        display: flex;
+        flex-direction: column;
+
         top: 10px;
         left: 10px;
         z-index: 9;
-        padding: 5px;
+        padding: 10px;
         border-radius: 10px;
+        background-color: #ccc;
+        border: 2px solid black;
     }
+
+    #console {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 9;
+        padding: 10px;
+        border-radius: 10px;
+        background-color: #ccc;
+        border: 2px solid black;
+
+    }
+
+    #consoleContent {
+        display: none;
+        max-height: 200px;
+        overflow-y: scroll;
+        padding-right: 20px;
+    }
+
+    button {
+        margin: 3px;
+        padding: 3px;
+
+    }
+
+    #help {
+        position: absolute;
+        top: 30vh;
+        left: 10vh;
+        z-index: 9;
+        padding: 10px;
+        border-radius: 10px;
+        background-color: #ccc;
+        border: 2px solid black;
+        /*display: none;*/
+    }
+
+    dialog:not([open]) {
+        display: none;
+    }
+
+    #lastDiv {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 9;
+        padding: 10px;
+        border-radius: 10px;
+        background-color: #ccc;
+        border: 2px solid black;
+    }
+
 </style>
 
 
