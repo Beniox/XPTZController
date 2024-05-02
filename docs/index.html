@@ -19,7 +19,7 @@
     </div>
 
     <div id="console">
-<!--        This displays the received commands-->
+        <!--        This displays the received commands-->
         <h2 id="cH">Console</h2>
         <div id="consoleContent"></div>
 
@@ -28,7 +28,9 @@
 
     <dialog id="help">
         <h2>Help</h2>
-        <p>This is a very simple PTZ Simulator to test the <a href="https://www.epiphan.com/userguides/LUMiO12x/Content/UserGuides/PTZ/3-operation/VISCAcommands.htm">VISCA</a> protocol via a COM input.</p>
+        <p>This is a very simple PTZ Simulator to test the <a
+                href="https://www.epiphan.com/userguides/LUMiO12x/Content/UserGuides/PTZ/3-operation/VISCAcommands.htm">VISCA</a>
+            protocol via a COM input.</p>
         <p>Currently only a few commands are implemented.</p>
 
         <h3>Commands:</h3>
@@ -122,7 +124,7 @@
                             break;
                         }
                         // Do something with |value|...
-                       const known = PTZ.isKnownCommand(value);
+                        const known = PTZ.isKnownCommand(value);
                         logToConsole(value, !known);
 
                     }
@@ -201,14 +203,16 @@
                     for (let key in PTZ.commands.move) {
                         if (command[6] === PTZ.commands.move[key][6] && command[7] === PTZ.commands.move[key][7]) {
                             //convert the speed to decimal
-                            const SpeedX = Number(command[4].toString(16));
-                            const SpeedY = Number(command[4].toString(16));
+                            const SpeedX = Number(command[4]);
+                            const SpeedY = Number(command[5]);
 
-                            if (SpeedX > 18 || SpeedX < 0) {
+                            console.log(SpeedX, SpeedY);
+
+                            if (SpeedX > 24 || SpeedX < 0) {
                                 console.log("Invalid SpeedX: " + SpeedX);
                                 return false;
                             }
-                            if (SpeedY > 18 || SpeedY < 0) {
+                            if (SpeedY > 20 || SpeedY < 0) {
                                 console.log("Invalid SpeedY: " + SpeedY);
                                 return false;
                             }
@@ -253,29 +257,30 @@
             startInterval: function () {
                 this.cameraT = this.camera.style.transform;
                 // start the interval to move the camera
-                this.interval = setInterval(this.moveCamera, 50);
+                this.interval = setInterval(this.moveCamera, 10);
             },
 
             moveCamera: function () {
                 // console.log("Moving Camera");
                 // move the camera in the direction and speed
+                const speedMultiplier = 0.2;
 
                 if (PTZ.dir.moveY === 1) {
                     // console.log("Moving Up");
-                    PTZ.pos.y -= PTZ.dir.speedY;
+                    PTZ.pos.y -= PTZ.dir.speedY * speedMultiplier;
                 } else if (PTZ.dir.moveY === 2) {
                     // console.log("Moving Down");
-                    PTZ.pos.y += PTZ.dir.speedY;
+                    PTZ.pos.y += PTZ.dir.speedY * speedMultiplier;
                 } else {
                     PTZ.dir.speedY = 0;
                 }
 
                 if (PTZ.dir.moveX === 1) {
                     // console.log("Moving Left");
-                    PTZ.pos.x -= PTZ.dir.speedX;
+                    PTZ.pos.x -= PTZ.dir.speedX * speedMultiplier;
                 } else if (PTZ.dir.moveX === 2) {
                     // console.log("Moving Right");
-                    PTZ.pos.x += PTZ.dir.speedX;
+                    PTZ.pos.x += PTZ.dir.speedX * speedMultiplier;
                 } else {
                     PTZ.dir.speedX = 0;
                 }
@@ -415,7 +420,6 @@
         background-color: #ccc;
         border: 2px solid black;
     }
-
 </style>
 
 
