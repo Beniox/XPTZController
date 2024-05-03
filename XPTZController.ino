@@ -9,18 +9,12 @@
 #endif
 #define RXPIN 20
 #define TXPIN 21
+#define TRESHOLD 2500
 
 // End of customisation
 
 XboxSeriesXControllerESP32_asukiaaa::Core
     xboxController(XBOX_ADDRESS);
-
-#define TRESHOLD 2500
-
-byte zoomCommand[6] = {0x81, 0x01, 0x04, 0x07, 0x2F, 0xff}; // 8x 01 04 07 2p ff
-byte turnOn[6] = {0x81, 0x01, 0x04, 0x00, 0x03, 0xFF};
-byte setMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x02, 0xFF};    // 8x 01 04 3F 02 ff
-byte recallMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x03, 0xFF}; // 8x 01 04 3F 03 ff
 
 void setup()
 {
@@ -32,6 +26,23 @@ void setup()
 
   Serial1.begin(9600, SERIAL_8N1, RXPIN, TXPIN);
 }
+
+void loop()
+{
+  if (!connect())
+  {
+    return;
+  }
+
+  handleButtons();
+  handleMove();
+  handleZoom();
+  handleDPad();
+
+  delay(50);
+}
+
+// ############################### Visca Area ###############################
 
 byte lastPacket[9] = {0}; // Array to store the last sent packet
 void sendViscaPacket(byte *packet, int byteSize)
@@ -60,45 +71,12 @@ void sendViscaPacket(byte *packet, int byteSize)
     }
     Serial.println();
   }
+  sleep(5); // to avoid sending packets too fast
 }
 
-void sendZoomPacket(byte zoomDir, int zoomSpeed)
-{
-  uint8_t zoomDirSpeed = (uint8_t)zoomDir + zoomSpeed;
-  zoomCommand[4] = zoomDirSpeed;
+// ############################### Connection Area ###############################
 
-  sendViscaPacket(zoomCommand, sizeof(zoomCommand));
-}
-
-bool moving = false;
-void loop()
-{
-  connect();
-
-  // turn on the PTZ
-  if (xboxController.xboxNotif.btnXbox)
-  {
-    Serial.println("turnOn");
-    sendViscaPacket(turnOn, sizeof(turnOn));
-    return;
-  }
-
-  // restart the esp32 by pressing the x
-  if (xboxController.xboxNotif.btnSelect && xboxController.xboxNotif.btnStart)
-  {
-    Serial.println("Restarting");
-    // ESP.restart();
-    return;
-  }
-
-  handleMove();
-  handleZoom();
-  handleDPad();
-
-  delay(50);
-}
-
-void connect()
+bool connect()
 {
   xboxController.onLoop();
   if (!xboxController.isConnected())
@@ -108,16 +86,44 @@ void connect()
     {
       ESP.restart();
     }
-    return;
+    return false;
   }
   // Ready
 
   if (xboxController.isWaitingForFirstNotification())
   {
     Serial.println("waiting for first notification");
+    return false;
+  }
+}
+
+// ############################### Button Area ###############################
+
+byte turnOn[6] = {0x81, 0x01, 0x04, 0x00, 0x03, 0xFF};
+
+void handleButtons()
+{
+  // turn on the PTZ
+  if (xboxController.xboxNotif.btnXbox)
+  {
+    Serial.println("turnOn");
+    sendViscaPacket(turnOn, sizeof(turnOn));
+    return;
+  }
+
+  // restart the esp32 by pressing the select and start button at the same time
+  if (xboxController.xboxNotif.btnSelect && xboxController.xboxNotif.btnStart)
+  {
+    Serial.println("Restarting");
+    ESP.restart();
     return;
   }
 }
+
+// ############################### Preset Area ###############################
+
+byte setMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x02, 0xFF};    // 8x 01 04 3F 02 ff
+byte recallMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x03, 0xFF}; // 8x 01 04 3F 03 ff
 
 void handleDPad()
 {
@@ -154,44 +160,52 @@ void handleDPad()
   }
 }
 
-bool zooming = false;
+// ############################### Zoom Area ###############################
+
+byte zoomCommand[6] = {0x81, 0x01, 0x04, 0x07, 0x2F, 0xff}; // 8x 01 04 07 2p ff
+uint8_t lastZoomSpeed = 0x00;                               // Store the last speed to avoid sending the same packet
 void handleZoom()
 {
   // Zoom via the right joystick
   auto rightY = xboxController.xboxNotif.joyRVert;
 
+  // Threshold
   if (abs(rightY - 32541) < TRESHOLD)
   {
     rightY = 32541;
   }
 
   uint8_t zoomSpeed = (uint8_t)map(abs(rightY - 32541), 0, 32541, 0, 15);
+
+  if (zoomSpeed == lastZoomSpeed)
+  {
+    // we are assuming that the joystick is not moving
+    return;
+  }
+  lastZoomSpeed = zoomSpeed;
+
   byte zoomDir = 0x00;
 
   if (rightY > 32541)
   {
-    // zoom out
-    zoomDir = 0x20;
-    zooming = true;
-    sendZoomPacket(zoomDir, zoomSpeed);
+    zoomDir = 0x20; // zoom out
   }
   else if (rightY < 32541)
   {
-    // zoom in
-    zoomDir = 0x30;
-    zooming = true;
-    sendZoomPacket(zoomDir, zoomSpeed);
+    zoomDir = 0x30; // zoom in
   }
-  else if (zooming)
-  {
-    // stop zooming
-    zooming = false;
-    sendZoomPacket(zoomDir, 0);
-    return;
-  }
+
+  uint8_t zoomDirSpeed = (uint8_t)zoomDir + zoomSpeed;
+  zoomCommand[4] = zoomDirSpeed;
+
+  sendViscaPacket(zoomCommand, sizeof(zoomCommand));
 }
 
+// ############################### Move Area ###############################
+
 byte move[9] = {0x81, 0x01, 0x06, 0x01, 0x00, 0x00, 0x03, 0x03, 0xFF};
+uint8_t lastSpeedX = 0x00; // Store the last speed to avoid sending the same packet
+uint8_t lastSpeedY = 0x00; // Store the last speed to avoid sending the same packet
 void handleMove()
 {
   // left joycon
@@ -209,8 +223,24 @@ void handleMove()
     leftY = 32541;
   }
 
-  move[4] = (uint8_t)map(abs(leftX - 32541), 0, 32541, 0, 24);
-  move[5] = (uint8_t)map(abs(leftY - 32541), 0, 32541, 0, 20);
+  // map the joystick values to the speed values
+  uint8_t speedX = (uint8_t)map(abs(leftX - 32541), 0, 32541, 0, 24);
+  uint8_t speedY = (uint8_t)map(abs(leftY - 32541), 0, 32541, 0, 20);
+
+  // We compare the speed instead of the joystick values, because the value could change slightly without that the speed changed
+  if (speedX == lastSpeedX && speedY == lastSpeedY)
+  {
+    // we are assuming that the joystick is not moving
+    return;
+  }
+
+  // the joystick is in a different position
+
+  lastSpeedX = speedX;
+  lastSpeedY = speedY;
+
+  move[4] = speedX;
+  move[5] = speedY;
 
   if (leftX < 32541)
   {
