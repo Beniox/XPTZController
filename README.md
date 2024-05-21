@@ -19,7 +19,7 @@ It was tested with a [RGB20X/30X-POE-WH](https://www.rgblink.com/uppic/file/2021
 - [x] Zooming
 - [x] Speed control
 - [ ] Focus
-- [ ] Presets
+- [x] Presets
 - [ ] Save and load settings
 
 ## Hardware

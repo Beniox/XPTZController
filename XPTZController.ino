@@ -29,15 +29,36 @@ void setup()
 
 void loop()
 {
-  if (!connect())
+  // if (!connect())
+  // {
+  //   return;
+  // }
+
+  xboxController.onLoop();
+  if (!xboxController.isConnected())
   {
+    Serial.println("not connected");
+    if (xboxController.getCountFailedConnection() > 2)
+    {
+      ESP.restart();
+    }
     return;
   }
+  // Ready
+
+  if (xboxController.isWaitingForFirstNotification())
+  {
+    Serial.println("waiting for first notification");
+    return;
+  }
+
+  Serial.println("Connected");
 
   handleButtons();
   handleMove();
   handleZoom();
   handleDPad();
+  handleABXY();
 
   delay(50);
 }
@@ -71,7 +92,8 @@ void sendViscaPacket(byte *packet, int byteSize)
     }
     Serial.println();
   }
-  sleep(5); // to avoid sending packets too fast
+  // sleep(5); // to avoid sending packets too fast;
+  delay(20);
 }
 
 // ############################### Connection Area ###############################
@@ -95,6 +117,7 @@ bool connect()
     Serial.println("waiting for first notification");
     return false;
   }
+  return true;
 }
 
 // ############################### Button Area ###############################
@@ -157,6 +180,16 @@ void handleDPad()
     recallMemory[4] = 0x04;
     sendViscaPacket(recallMemory, sizeof(recallMemory));
     return;
+  }
+}
+
+// Custom presets, id 100 to 104
+void handleABXY()
+{
+  bool rBack = xboxController.xboxNotif.btnRB;
+  if (rBack)
+  {
+    Serial.println("preset set");
   }
 }
 
