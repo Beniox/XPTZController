@@ -31,6 +31,7 @@ It was tested with a [RGB20X/30X-POE-WH](https://www.rgblink.com/uppic/file/2021
 - D-Pad: Presets
 - ABXY: Preset save and load
 - RB: Set Preset
+- Left Trigger: Save Preset on Press, Load Preset on Release
 - XBOX: Turn on the camera
 
 ## Hardware
