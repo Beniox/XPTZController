@@ -10,6 +10,7 @@
 #define RXPIN 20
 #define TXPIN 21
 #define TRESHOLD 2500
+#define trigLTTreshold 0x200
 
 // End of customisation
 
@@ -39,14 +40,35 @@ void sendViscaPacket(byte *packet, int byteSize)
     for (int i = 0; i < byteSize; i++)
     {
       Serial1.write(packet[i]);
-      Serial.print(packet[i], HEX);
-      Serial.print(" ");
       lastPacket[i] = packet[i]; // Update the last packet
     }
-    Serial.println();
   }
   // sleep(5); // to avoid sending packets too fast;
   delay(20);
+}
+
+void vibrateLeft()
+{
+  XboxSeriesXHIDReportBuilder_asukiaaa::ReportBase repo;
+  repo.v.select.center = false;
+  repo.v.select.right = false;
+  repo.v.select.left = true;
+  repo.v.power.left = 40;
+  repo.v.timeActive = 10;
+  Serial.println("run left 30\% power in half second");
+  xboxController.writeHIDReport(repo);
+}
+
+void vibrateRight()
+{
+  XboxSeriesXHIDReportBuilder_asukiaaa::ReportBase repo;
+  repo.v.select.center = false;
+  repo.v.select.right = true;
+  repo.v.select.left = false;
+  repo.v.power.left = 40;
+  repo.v.timeActive = 10;
+  Serial.println("run left 30\% power in half second");
+  xboxController.writeHIDReport(repo);
 }
 
 // ############################### Connection Area ###############################
@@ -136,8 +158,7 @@ void handleDPad()
 }
 
 byte setMemory[7] = {0x81, 0x01, 0x04, 0x3F, 0x01, 0x00, 0xFF}; // 8x 01 04 3F 02 ff
-// Custom presets, id 100 to 104
-bool lastrBack = false;
+bool released = false;
 void handleABXY()
 {
 
@@ -163,6 +184,7 @@ void handleABXY()
   }
   else
   {
+    released = true;
     return;
   }
 
@@ -172,6 +194,19 @@ void handleABXY()
     // Save the current position to a custom preset
     Serial.println("preset set");
     setMemory[4] = 0x01;
+
+    if (released)
+    {
+      XboxSeriesXHIDReportBuilder_asukiaaa::ReportBase repo;
+      repo.v.select.center = true;
+      repo.v.select.right = false;
+      repo.v.select.left = false;
+      repo.v.power.left = 40;
+      repo.v.timeActive = 10;
+      Serial.println("run left 30\% power in half second");
+      xboxController.writeHIDReport(repo);
+      released = false;
+    }
   }
   else
   {
@@ -181,6 +216,36 @@ void handleABXY()
   }
 
   sendViscaPacket(setMemory, sizeof(setMemory));
+}
+
+byte fastMemory[7] = {0x81, 0x01, 0x04, 0x3F, 0x02, 0x70, 0xFF};
+bool saved = false;
+// when the left trigger button is presed, save the current position to a fast preset, when released recall the fast preset
+void fastPreset()
+{
+  if (xboxController.xboxNotif.trigLT > trigLTTreshold)
+  {
+    if (!saved)
+    {
+      // Save the current position to a custom preset
+      Serial.println("fast preset set");
+      vibrateLeft();
+      fastMemory[4] = 0x01;
+      sendViscaPacket(fastMemory, sizeof(fastMemory));
+      saved = true;
+    }
+  }
+  else
+  {
+    if (saved)
+    {
+      // recall the fast preset
+      Serial.println("fast preset recall");
+      fastMemory[4] = 0x02;
+      sendViscaPacket(fastMemory, sizeof(fastMemory));
+      saved = false;
+    }
+  }
 }
 
 // ############################### Zoom Area ###############################
@@ -335,6 +400,7 @@ void loop()
   handleZoom();
   handleDPad();
   handleABXY();
+  fastPreset();
 
-  delay(50);
+  delay(20);
 }
