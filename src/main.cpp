@@ -16,53 +16,6 @@
 XboxSeriesXControllerESP32_asukiaaa::Core
     xboxController(XBOX_ADDRESS);
 
-void setup()
-{
-  Serial.begin(9600);
-
-  Serial.println("Starting NimBLE Client");
-  xboxController.begin();
-  pinMode(2, OUTPUT);
-
-  Serial1.begin(9600, SERIAL_8N1, RXPIN, TXPIN);
-}
-
-void loop()
-{
-  // if (!connect())
-  // {
-  //   return;
-  // }
-
-  xboxController.onLoop();
-  if (!xboxController.isConnected())
-  {
-    Serial.println("not connected");
-    if (xboxController.getCountFailedConnection() > 2)
-    {
-      ESP.restart();
-    }
-    return;
-  }
-  // Ready
-
-  if (xboxController.isWaitingForFirstNotification())
-  {
-    Serial.println("waiting for first notification");
-    return;
-  }
-
-  Serial.println("Connected");
-
-  handleButtons();
-  handleMove();
-  handleZoom();
-  handleDPad();
-  handleABXY();
-
-  delay(50);
-}
-
 // ############################### Visca Area ###############################
 
 byte lastPacket[9] = {0}; // Array to store the last sent packet
@@ -145,8 +98,7 @@ void handleButtons()
 
 // ############################### Preset Area ###############################
 
-byte setMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x02, 0xFF};    // 8x 01 04 3F 02 ff
-byte recallMemory[6] = {0x81, 0x01, 0x04, 0x3F, 0x03, 0xFF}; // 8x 01 04 3F 03 ff
+byte recallMemory[7] = {0x81, 0x01, 0x04, 0x3F, 0x02, 0x00, 0xFF}; // 8x 01 04 3F 03 ff
 
 void handleDPad()
 {
@@ -155,7 +107,7 @@ void handleDPad()
   if (xboxController.xboxNotif.btnDirUp)
   {
     Serial.println("Recall memory 1");
-    recallMemory[4] = 0x01;
+    recallMemory[5] = 0x01;
     sendViscaPacket(recallMemory, sizeof(recallMemory));
     // vibrate();
     return;
@@ -163,34 +115,72 @@ void handleDPad()
   if (xboxController.xboxNotif.btnDirRight)
   {
     Serial.println("Recall memory 2");
-    recallMemory[4] = 0x02;
+    recallMemory[5] = 0x02;
     sendViscaPacket(recallMemory, sizeof(recallMemory));
     return;
   }
   if (xboxController.xboxNotif.btnDirDown)
   {
     Serial.println("Recall memory 3");
-    recallMemory[4] = 0x03;
+    recallMemory[5] = 0x03;
     sendViscaPacket(recallMemory, sizeof(recallMemory));
     return;
   }
   if (xboxController.xboxNotif.btnDirLeft)
   {
     Serial.println("Recall memory 4");
-    recallMemory[4] = 0x04;
+    recallMemory[5] = 0x04;
     sendViscaPacket(recallMemory, sizeof(recallMemory));
     return;
   }
 }
 
+byte setMemory[7] = {0x81, 0x01, 0x04, 0x3F, 0x01, 0x00, 0xFF}; // 8x 01 04 3F 02 ff
 // Custom presets, id 100 to 104
+bool lastrBack = false;
 void handleABXY()
 {
+
+  if (xboxController.xboxNotif.btnA)
+  {
+    // preset 100
+    setMemory[5] = 0x64;
+  }
+  else if (xboxController.xboxNotif.btnB)
+  {
+    // preset 101
+    setMemory[5] = 0x65;
+  }
+  else if (xboxController.xboxNotif.btnX)
+  {
+    // preset 102
+    setMemory[5] = 0x66;
+  }
+  else if (xboxController.xboxNotif.btnY)
+  {
+    // preset 103
+    setMemory[5] = 0x67;
+  }
+  else
+  {
+    return;
+  }
+
   bool rBack = xboxController.xboxNotif.btnRB;
   if (rBack)
   {
+    // Save the current position to a custom preset
     Serial.println("preset set");
+    setMemory[4] = 0x01;
   }
+  else
+  {
+    // change to recall
+    Serial.println("preset recall");
+    setMemory[4] = 0x02;
+  }
+
+  sendViscaPacket(setMemory, sizeof(setMemory));
 }
 
 // ############################### Zoom Area ###############################
@@ -302,4 +292,49 @@ void handleMove()
   }
 
   sendViscaPacket(move, sizeof(move));
+}
+
+void setup()
+{
+  Serial.begin(9600);
+
+  Serial.println("Starting NimBLE Client");
+  xboxController.begin();
+  pinMode(2, OUTPUT);
+
+  Serial1.begin(9600, SERIAL_8N1, RXPIN, TXPIN);
+}
+
+void loop()
+{
+  // if (!connect())
+  // {
+  //   return;
+  // }
+
+  xboxController.onLoop();
+  if (!xboxController.isConnected())
+  {
+    Serial.println("not connected");
+    if (xboxController.getCountFailedConnection() > 2)
+    {
+      ESP.restart();
+    }
+    return;
+  }
+  // Ready
+
+  if (xboxController.isWaitingForFirstNotification())
+  {
+    Serial.println("waiting for first notification");
+    return;
+  }
+
+  handleButtons();
+  handleMove();
+  handleZoom();
+  handleDPad();
+  handleABXY();
+
+  delay(50);
 }
