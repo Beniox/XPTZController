@@ -14,8 +14,12 @@
 
 // End of customisation
 
-XboxSeriesXControllerESP32_asukiaaa::Core
-    xboxController(XBOX_ADDRESS);
+// Only one xbox controller
+// XboxSeriesXControllerESP32_asukiaaa::Core
+//     xboxController(XBOX_ADDRESS);
+
+// any xbox controller
+XboxSeriesXControllerESP32_asukiaaa::Core xboxController;
 
 // ############################### Visca Area ###############################
 
@@ -402,5 +406,5 @@ void loop()
   handleABXY();
   fastPreset();
 
-  delay(20);
+  delay(5);
 }
