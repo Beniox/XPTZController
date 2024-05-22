@@ -22,6 +22,17 @@ It was tested with a [RGB20X/30X-POE-WH](https://www.rgblink.com/uppic/file/2021
 - [x] Presets
 - [ ] Save and load settings
 
+## Controls
+
+![controller](images/controller.png)
+
+- Left Stick: Tilting and Panning
+- Right Stick: Zooming
+- D-Pad: Presets
+- ABXY: Preset save and load
+- RB: Set Preset
+- XBOX: Turn on the camera
+
 ## Hardware
 
 - ESP32 (I use a ESP32-C3 mini)
