@@ -41,15 +41,25 @@ It was tested with a [RGB20X/30X-POE-WH](https://www.rgblink.com/uppic/file/2021
 - PCB Screw Terminal Block Connector, or any other way to connect the RS-485 to the camera
 - Xbox Series X controller
 
+## Installation
+
+1. Clone the repository
+2. Open the project in PlatformIO
+3. Select the correct board
+4. Compile and upload the code
+
 ## Usage
 
-Currently there is no automatic way to pair the controller with the ESP32. You need to find the MAC address of the controller and set it in the code.
+1. Compile and flash the code to the ESP32.
+2. Connect the RS485 Module to the ESP32.
+3. Connect the RS485 Module to the camera.
+4. Power on the ESP32.
+5. Power on the camera.
+6. Turn on the Xbox controller.
 
-You also need to set the RS-485 pins in the code.
+Now you should be able to control the camera with the Xbox controller.
 
-Then you have to compile and upload the code to the ESP32.
-
-After powering up the ESP32, it will try to connect to the controller. If it is successful, you can start controlling the camera.
+If the Controller goes to sleep, you have to press the Xbox button to wake it up. It will automatically reconnect to the ESP32.
 
 ## Testing
 
