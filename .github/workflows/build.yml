@@ -22,3 +22,9 @@ jobs:
 
       - name: Build PlatformIO Project
         run: pio run
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: esp32-builds # Name for your artifact
+          path: ./.pio/build/*/*.bin  # Path to the bin files (adjust as needed)
