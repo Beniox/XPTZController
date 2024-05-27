@@ -27,4 +27,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: esp32-builds # Name for your artifact
-          path: ./.pio/build/{env}/*.bin  # Path to the bin files (adjust as needed)
+          path: ./.pio/build/*/*.bin  # Path to the bin files (adjust as needed)
